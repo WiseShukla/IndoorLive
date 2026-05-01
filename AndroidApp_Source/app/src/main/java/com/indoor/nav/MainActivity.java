@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
     private void scanWifi() {
         allScansArray = new JSONArray();
         scanCount = 0;
-        tvResult.setText("Collecting multiple scans for precision (1/" + MAX_SCANS + ")...");
+        tvResult.setText("Locating...");
         performSingleScan();
     }
 
@@ -128,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
                 
                 scanCount++;
                 if (scanCount < MAX_SCANS) {
-                    tvResult.setText("Collecting multiple scans for precision (" + (scanCount+1) + "/" + MAX_SCANS + ")...");
+                    tvResult.setText("Locating...");
                     performSingleScan();
                 } else {
                     finishScanningAndSend();
