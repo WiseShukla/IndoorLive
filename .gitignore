@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+AndroidApp_Source/build/
+AndroidApp_Source/.gradle/
+AndroidApp_Source/local.properties
+AndroidApp_Source/*/build/

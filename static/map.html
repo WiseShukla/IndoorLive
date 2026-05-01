@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Indoor Navigation Map</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #0f172a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #mapContainer { width: 100%; height: 100%; position: relative; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .controls { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; flex-direction: column; }
+        button { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body>
+    <div id="mapContainer">
+        <canvas id="floorPlan"></canvas>
+        <div class="controls">
+            <button onclick="zoom(1.2)">+</button>
+            <button onclick="zoom(0.8)">-</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('floorPlan');
+        const ctx = canvas.getContext('2d');
+        let graphData = null;
+        let scale = 1.0;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let lastX, lastY;
+        
+        let startNode = null;
+        let endNode = null;
+        let path = null;
+        let pathProgress = 0;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        startNode = urlParams.get('start');
+        endNode = urlParams.get('end');
+
+        async function init() {
+            try {
+                const res = await fetch('/api/graph');
+                graphData = await res.json();
+                
+                if (startNode && endNode) {
+                    const navRes = await fetch('/api/navigate', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({start: startNode, end: endNode})
+                    });
+                    const navData = await navRes.json();
+                    if (!navData.error) {
+                        path = navData.path;
+                    }
+                }
+                
+                resize();
+                window.addEventListener('resize', resize);
+                setupInteractions();
+                animate();
+            } catch (e) {
+                console.error("Failed to load map data", e);
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            if (graphData && scale === 1.0) {
+                // Auto-center and fit
+                const xs = graphData.nodes.map(n => n.x);
+                const minX = Math.min(...xs), maxX = Math.max(...xs);
+                
+                // Fit width with 40px padding
+                scale = (canvas.width - 40) / (maxX - minX + 100);
+                
+                // Center on start node if exists, else center
+                let cx = (minX + maxX) / 2;
+                let cy = 380; // corridor Y
+                
+                if (startNode) {
+                    const sn = graphData.nodes.find(n => n.id === startNode);
+                    if (sn) { cx = sn.x; cy = sn.y; }
+                }
+                
+                offsetX = canvas.width/2 - cx * scale;
+                offsetY = canvas.height/2 - cy * scale;
+            }
+            draw();
+        }
+
+        function setupInteractions() {
+            canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('mousemove', e => {
+                if (!isDragging) return;
+                offsetX += e.clientX - lastX;
+                offsetY += e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                draw();
+            });
+            
+            canvas.addEventListener('touchstart', e => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    lastX = e.touches[0].clientX;
+                    lastY = e.touches[0].clientY;
+                }
+            });
+            canvas.addEventListener('touchend', () => isDragging = false);
+            canvas.addEventListener('touchmove', e => {
+                if (!isDragging || e.touches.length !== 1) return;
+                offsetX += e.touches[0].clientX - lastX;
+                offsetY += e.touches[0].clientY - lastY;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                draw();
+            });
+        }
+
+        function zoom(factor) {
+            const cx = canvas.width/2, cy = canvas.height/2;
+            const rx = (cx - offsetX) / scale;
+            const ry = (cy - offsetY) / scale;
+            scale *= factor;
+            offsetX = cx - rx * scale;
+            offsetY = cy - ry * scale;
+            draw();
+        }
+
+        function draw() {
+            if (!graphData) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+
+            // Draw edges
+            ctx.lineWidth = 2;
+            graphData.edges.forEach(edge => {
+                const n1 = graphData.nodes.find(n => n.id === edge.from);
+                const n2 = graphData.nodes.find(n => n.id === edge.to);
+                if (n1 && n2) {
+                    ctx.beginPath();
+                    ctx.moveTo(n1.x, n1.y);
+                    ctx.lineTo(n2.x, n2.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.stroke();
+                }
+            });
+
+            // Draw animated path
+            if (path && path.length > 1) {
+                ctx.beginPath();
+                const firstNode = graphData.nodes.find(n => n.id === path[0]);
+                ctx.moveTo(firstNode.x, firstNode.y);
+                
+                let distAccum = 0;
+                for (let i = 0; i < path.length - 1; i++) {
+                    const n1 = graphData.nodes.find(n => n.id === path[i]);
+                    const n2 = graphData.nodes.find(n => n.id === path[i+1]);
+                    const dx = n2.x - n1.x, dy = n2.y - n1.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (distAccum + d <= pathProgress) {
+                        ctx.lineTo(n2.x, n2.y);
+                    } else {
+                        const ratio = (pathProgress - distAccum) / d;
+                        ctx.lineTo(n1.x + dx * ratio, n1.y + dy * ratio);
+                        break;
+                    }
+                    distAccum += d;
+                }
+                
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#3b82f6';
+                ctx.shadowBlur = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw nodes
+            graphData.nodes.forEach(node => {
+                const isStart = node.id === startNode;
+                const isEnd = node.id === endNode;
+                const isPath = path && path.includes(node.id);
+                
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, isStart || isEnd ? 12 : 6, 0, Math.PI * 2);
+                
+                if (isStart) {
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.shadowColor = '#3b82f6';
+                    ctx.shadowBlur = 15;
+                } else if (isEnd) {
+                    ctx.fillStyle = '#22c55e';
+                    ctx.shadowColor = '#22c55e';
+                    ctx.shadowBlur = 15;
+                } else if (isPath) {
+                    ctx.fillStyle = '#8b5cf6';
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = node.type === 'corridor' ? '#334155' : 
+                                  node.wing === 'A' ? 'rgba(59, 130, 246, 0.4)' : 
+                                  node.wing === 'B' ? 'rgba(239, 68, 68, 0.4)' : '#64748b';
+                    ctx.shadowBlur = 0;
+                }
+                
+                ctx.fill();
+                
+                if (node.type === 'room' || node.type === 'landmark') {
+                    ctx.font = '10px Arial';
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(node.id.split('_')[0], node.x, node.y - 15);
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function animate() {
+            if (path && graphData) {
+                let totalDist = 0;
+                for (let i=0; i<path.length-1; i++) {
+                    const n1 = graphData.nodes.find(n => n.id === path[i]);
+                    const n2 = graphData.nodes.find(n => n.id === path[i+1]);
+                    if(n1 && n2) totalDist += Math.sqrt(Math.pow(n2.x-n1.x, 2) + Math.pow(n2.y-n1.y, 2));
+                }
+                
+                pathProgress += 5;
+                if (pathProgress > totalDist + 50) {
+                    pathProgress = 0; // Loop animation
+                }
+                draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        init();
+    </script>
+</body>
+</html>

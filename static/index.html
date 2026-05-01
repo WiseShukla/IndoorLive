@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WiFi fingerprint-based indoor localization and navigation system for the 4th floor of the R&D building.">
+    <title>Indoor Navigation System — 4th Floor R&D Building</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header" id="appHeader">
+            <div class="header-logo">
+                <div class="logo-icon">📡</div>
+                <div>
+                    <h1>IndoorNav</h1>
+                    <div class="subtitle">WiFi Fingerprint Localization</div>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-dot"></div>
+                System Online
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar" id="sidebar">
+                <!-- Localization Card -->
+                <div class="card" id="localizationCard">
+                    <div class="card-header">
+                        <div class="icon blue">📍</div>
+                        <h3>Localization</h3>
+                    </div>
+                    <div class="form-group">
+                        <label for="currentLocationSelect">Select / Simulate Location</label>
+                        <select id="currentLocationSelect">
+                            <option value="">— Choose Location —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="stepCountInput">Steps from Elevator <span style="opacity:0.5;font-weight:400">(optional, for precision)</span></label>
+                        <input type="number" id="stepCountInput" min="0" max="500" placeholder="e.g. 76" class="step-input">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" id="localizeBtn" onclick="simulateLocalization()">
+                            <div class="spinner"></div>
+                            <span class="btn-text">📡 Localize Me</span>
+                        </button>
+                    </div>
+                    <div class="location-display" id="locationDisplay">
+                        <div class="location-label">Not Localized</div>
+                        <div class="location-value" style="font-size:1rem;opacity:0.5;">—</div>
+                    </div>
+                </div>
+
+                <!-- Top Matches Card -->
+                <div class="card" id="matchesCard">
+                    <div class="card-header">
+                        <div class="icon purple">📊</div>
+                        <h3>Match Results</h3>
+                    </div>
+                    <ul class="match-list" id="topMatches">
+                        <li class="match-item"><span class="name" style="opacity:0.4">No results yet</span></li>
+                    </ul>
+                </div>
+
+                <!-- Navigation Card -->
+                <div class="card" id="navigationCard">
+                    <div class="card-header">
+                        <div class="icon cyan">🧭</div>
+                        <h3>Navigation</h3>
+                    </div>
+                    <div class="form-group">
+                        <label for="destinationSelect">Destination</label>
+                        <select id="destinationSelect">
+                            <option value="">— Choose Destination —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-navigate" id="navigateBtn" onclick="startNavigation()">
+                            <div class="spinner"></div>
+                            <span class="btn-text">🗺️ Navigate</span>
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary" onclick="clearNavigation()">🔄 Clear</button>
+                    </div>
+                </div>
+
+                <!-- Directions Card -->
+                <div class="card" id="directionsCard">
+                    <div class="card-header">
+                        <div class="icon green">📋</div>
+                        <h3>Directions</h3>
+                    </div>
+                    <div id="directionsContainer">
+                        <div class="empty-state">
+                            <div class="icon">🧭</div>
+                            <p>Select your location and destination, then navigate.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="icon orange">🎨</div>
+                        <h3>Map Legend</h3>
+                    </div>
+                    <div class="legend">
+                        <div class="legend-item"><div class="legend-dot a-left"></div> A-Wing Left</div>
+                        <div class="legend-item"><div class="legend-dot a-right"></div> A-Wing Right</div>
+                        <div class="legend-item"><div class="legend-dot b-left"></div> B-Wing Left</div>
+                        <div class="legend-item"><div class="legend-dot b-right"></div> B-Wing Right</div>
+                        <div class="legend-item"><div class="legend-dot landmark"></div> Landmark</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Floor Plan -->
+            <section class="floor-plan-container" id="floorPlanContainer">
+                <div class="floor-plan-wrapper">
+                    <canvas id="floorPlanCanvas"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
