@@ -135,15 +135,7 @@ WiFi fingerprints were collected using a WiFi scanner app on Android. At each re
 - **Algorithm**: Random Forest Classifier, Dijkstra's Shortest Path
 - **Data**: WiFi RSSI fingerprints from 92 reference points
 
-## Team Members
 
-| Name | Contribution |
-|------|-------------|
-| Member 1 | WiFi data collection, fingerprint engine |
-| Member 2 | Navigation algorithm, graph modeling |
-| Member 3 | Frontend development, canvas rendering |
-| Member 4 | Backend API, system integration |
-| Member 5 | Testing, documentation, report writing |
 
 ## License
 
