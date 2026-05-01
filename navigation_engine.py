@@ -338,6 +338,15 @@ class NavigationGraph:
             
         location_label = location_label.strip()
         
+        LABEL_REMAP = {
+            'mid_corridor':       'corridor_mid',
+            'mid_corridor_right': 'corridor_mid',
+            'mid_corridor_left':  'corridor_mid',
+            'elevator_origin':    'door_elevator',
+        }
+        if location_label in LABEL_REMAP:
+            location_label = LABEL_REMAP[location_label]
+        
         if location_label in self.graph:
             return location_label
             
