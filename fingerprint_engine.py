@@ -176,7 +176,7 @@ class WiFiFingerprintEngine:
             self.classifier = None
             return
 
-        self.classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+        self.classifier = RandomForestClassifier(n_estimators=200,class_weight='balanced', random_state=42)
         self.classifier.fit(X, y)
         self.location_labels = self.classifier.classes_
 
