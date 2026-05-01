@@ -134,26 +134,47 @@ def localize():
     """
     data = request.get_json()
 
-    if not data or 'wifi_scan' not in data:
-        return jsonify({'error': 'Missing wifi_scan in request body'}), 400
+    if not data or ('wifi_scan' not in data and 'wifi_scans' not in data):
+        return jsonify({'error': 'Missing wifi_scan or wifi_scans in request body'}), 400
 
-    # Convert scan array to dictionary
-    scan_dict = {}
-    for ap in data['wifi_scan']:
-        bssid = ap.get('bssid', '').strip().lower()
-        rssi = ap.get('rssi', -100)
-        if bssid and rssi != 0:
-            scan_dict[bssid] = rssi
+    scans_to_process = []
 
-    if not scan_dict:
-        return jsonify({'error': 'No valid WiFi data in scan'}), 400
+    # Handle multiple scans if provided (for 3-second majority voting)
+    if 'wifi_scans' in data:
+        for scan_arr in data['wifi_scans']:
+            sd = {}
+            for ap in scan_arr:
+                bssid = ap.get('bssid', '').strip().lower()
+                rssi = ap.get('rssi', -100)
+                if bssid and rssi != 0:
+                    sd[bssid] = rssi
+            if sd:
+                scans_to_process.append(sd)
+
+    # Handle single scan fallback (backward compatibility)
+    elif 'wifi_scan' in data:
+        sd = {}
+        for ap in data['wifi_scan']:
+            bssid = ap.get('bssid', '').strip().lower()
+            rssi = ap.get('rssi', -100)
+            if bssid and rssi != 0:
+                sd[bssid] = rssi
+        if sd:
+            scans_to_process.append(sd)
+
+    if not scans_to_process:
+        return jsonify({'error': 'No valid WiFi data in scan(s)'}), 400
 
     # Check for step count (WiFi + PDR fusion)
     step_count = data.get('step_count', 0)
     if step_count and int(step_count) > 0:
-        result = engine.predict_with_steps(scan_dict, int(step_count), nav)
+        result = engine.predict_with_steps(scans_to_process[-1], int(step_count), nav)
     else:
-        result = engine.predict(scan_dict)
+        # Use majority voting if we have multiple scans!
+        if len(scans_to_process) > 1:
+            result = engine.predict_multi_scan(scans_to_process)
+        else:
+            result = engine.predict(scans_to_process[0])
 
     result['room_name'] = nav.get_room_name(result['predicted_location'])
     
@@ -231,25 +252,44 @@ def localize_and_navigate():
     """
     data = request.get_json()
 
-    if not data or 'wifi_scan' not in data or 'destination' not in data:
-        return jsonify({'error': 'Missing wifi_scan or destination'}), 400
+    if not data or ('wifi_scan' not in data and 'wifi_scans' not in data) or 'destination' not in data:
+        return jsonify({'error': 'Missing wifi_scan/wifi_scans or destination'}), 400
 
-    # Step 1: Localize (with optional step count)
-    scan_dict = {}
-    for ap in data['wifi_scan']:
-        bssid = ap.get('bssid', '').strip().lower()
-        rssi = ap.get('rssi', -100)
-        if bssid and rssi != 0:
-            scan_dict[bssid] = rssi
+    # Step 1: Localize
+    scans_to_process = []
 
-    if not scan_dict:
+    if 'wifi_scans' in data:
+        for scan_arr in data['wifi_scans']:
+            sd = {}
+            for ap in scan_arr:
+                bssid = ap.get('bssid', '').strip().lower()
+                rssi = ap.get('rssi', -100)
+                if bssid and rssi != 0:
+                    sd[bssid] = rssi
+            if sd:
+                scans_to_process.append(sd)
+
+    elif 'wifi_scan' in data:
+        sd = {}
+        for ap in data['wifi_scan']:
+            bssid = ap.get('bssid', '').strip().lower()
+            rssi = ap.get('rssi', -100)
+            if bssid and rssi != 0:
+                sd[bssid] = rssi
+        if sd:
+            scans_to_process.append(sd)
+
+    if not scans_to_process:
         return jsonify({'error': 'No valid WiFi data'}), 400
 
     step_count = data.get('step_count', 0)
     if step_count and int(step_count) > 0:
-        loc_result = engine.predict_with_steps(scan_dict, int(step_count), nav)
+        loc_result = engine.predict_with_steps(scans_to_process[-1], int(step_count), nav)
     else:
-        loc_result = engine.predict(scan_dict)
+        if len(scans_to_process) > 1:
+            loc_result = engine.predict_multi_scan(scans_to_process)
+        else:
+            loc_result = engine.predict(scans_to_process[0])
     loc_result['room_name'] = nav.get_room_name(loc_result['predicted_location'])
 
     # Step 2: Navigate
