@@ -326,9 +326,9 @@ class NavigationGraph:
         return directions
 
     def get_room_name(self, location_label):
-        """Convert 'A-401_left' to 'A-401', but preserve mid_corridor directions."""
+        """Convert 'A-401_left' to 'A-401', and 'mid_corridor_right' to 'Mid Corridor'."""
         if 'mid_corridor' in location_label.lower():
-            return location_label
+            return 'Mid Corridor'
         return location_label.replace('_left', '').replace('_Right', '').replace('_right', '')
 
     def find_node_for_location(self, location_label):

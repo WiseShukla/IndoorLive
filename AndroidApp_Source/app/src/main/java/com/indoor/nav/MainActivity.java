@@ -44,10 +44,6 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean currentIsNavigation = false;
     private static final int PERMISSIONS_REQUEST_CODE = 100;
-    
-    private JSONArray allScansArray = new JSONArray();
-    private int scanCount = 0;
-    private static final int MAX_SCANS = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,39 +96,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void scanWifi() {
-        allScansArray = new JSONArray();
-        scanCount = 0;
-        tvResult.setText("Locating...");
-        performSingleScan();
-    }
-
-    private void performSingleScan() {
+        tvResult.setText("Scanning WiFi...");
         BroadcastReceiver wifiScanReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context c, Intent intent) {
-                unregisterReceiver(this);
                 boolean success = intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false);
-                if (success || true) { // Fallback to get latest even if failed
-                    List<ScanResult> results = wifiManager.getScanResults();
-                    JSONArray wifiArray = new JSONArray();
-                    try {
-                        for (ScanResult result : results) {
-                            JSONObject ap = new JSONObject();
-                            ap.put("bssid", result.BSSID);
-                            ap.put("rssi", result.level);
-                            wifiArray.put(ap);
-                        }
-                        allScansArray.put(wifiArray);
-                    } catch (Exception e) {}
-                }
-                
-                scanCount++;
-                if (scanCount < MAX_SCANS) {
-                    tvResult.setText("Locating...");
-                    performSingleScan();
+                if (success) {
+                    scanSuccess();
                 } else {
-                    finishScanningAndSend();
+                    scanFailure();
                 }
+                unregisterReceiver(this);
             }
         };
 
@@ -142,35 +116,23 @@ public class MainActivity extends AppCompatActivity {
 
         boolean success = wifiManager.startScan();
         if (!success) {
-            // If Android throttles the scan, we still increment and use cached data
-            scanCount++;
-            unregisterReceiver(wifiScanReceiver);
-            
-            // Still grab cached results for the array
-            try {
-                List<ScanResult> results = wifiManager.getScanResults();
-                JSONArray wifiArray = new JSONArray();
-                for (ScanResult result : results) {
-                    JSONObject ap = new JSONObject();
-                    ap.put("bssid", result.BSSID);
-                    ap.put("rssi", result.level);
-                    wifiArray.put(ap);
-                }
-                allScansArray.put(wifiArray);
-            } catch (Exception e) {}
-
-            if (scanCount < MAX_SCANS) {
-                performSingleScan();
-            } else {
-                finishScanningAndSend();
-            }
+            scanFailure();
         }
     }
 
-    private void finishScanningAndSend() {
+    private void scanSuccess() {
+        List<ScanResult> results = wifiManager.getScanResults();
         try {
+            JSONArray wifiArray = new JSONArray();
+            for (ScanResult result : results) {
+                JSONObject ap = new JSONObject();
+                ap.put("bssid", result.BSSID);
+                ap.put("rssi", result.level);
+                wifiArray.put(ap);
+            }
+            
             JSONObject payload = new JSONObject();
-            payload.put("wifi_scans", allScansArray);
+            payload.put("wifi_scan", wifiArray);
             
             if (currentIsNavigation) {
                 String dest = destinationInput.getText().toString().trim();
@@ -187,6 +149,11 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
             tvResult.setText("Error parsing scan results");
         }
+    }
+
+    private void scanFailure() {
+        tvResult.setText("Scan failed. Using old results...");
+        scanSuccess(); 
     }
 
     private void sendDataToServer(String jsonPayload, boolean hasDestination) {
