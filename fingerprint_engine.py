@@ -134,9 +134,8 @@ class WiFiFingerprintEngine:
                         except (ValueError, IndexError):
                             pass
 
-                    lat = row.get('Latitude', '0')
-                    lon = row.get('Longitude', '0')
-                    coord_key = f"{lat},{lon}"
+                    scan_num = row.get('Scan#', '1')
+                    coord_key = f"scan_{scan_num}"
 
                     if coord_key not in scans_by_coords:
                         scans_by_coords[coord_key] = {}
